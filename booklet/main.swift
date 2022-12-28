@@ -8,18 +8,68 @@
 
 import PDFKit
 
-let inFile : String
+var inFile: String = ""
+var startPage = 1
+var invertAlternatePages = false
+var pageCount = 0
 
-if CommandLine.arguments.count == 2 {
-    inFile = CommandLine.arguments[1]
-    if ["-h", "-?", "-help", "--help"].contains(inFile) {
+var args = CommandLine.arguments
+if args.count > 1 {
+    if ["-h", "-?", "-help", "--help"].contains(where: args.contains) {
         print("Usage: booklet <inputfile>")
         exit(0)
     }
-} else {
+
+    while let pos = args.firstIndex(
+        where: ["--pages", "--page-count", "--pageCount"].contains)
+    {
+        let pages = 0 + (Int(args[pos + 1]) ?? 0)
+        pageCount = pages
+        args.remove(at: pos + 1)
+        args.remove(at: pos)
+    }
+
+    while let pos = args.firstIndex(where: ["--skip", "--skip-pages"].contains) {
+        let skip = 1 + (Int(args[pos + 1]) ?? 0)
+        startPage = skip
+        args.remove(at: pos + 1)
+        args.remove(at: pos)
+    }
+    while let pos = args.firstIndex(of: "--skip-sheets") {
+        let skip = 1 + (Int(args[pos + 1]) ?? 0)
+        startPage = skip * 4 - 3
+        args.remove(at: pos + 1)
+        args.remove(at: pos)
+    }
+
+    while let pos = args.firstIndex(
+        where: [
+            "--invert",
+            "--rotate-alternate",
+            "--rotate-alternate-pages",
+            "--invert-alternate-pages",
+        ].contains)
+    {
+        invertAlternatePages = true
+        args.remove(at: pos)
+    }
+
+    while let pos = args.firstIndex(
+        where: ["--sheets", "--booklet-sheets", "--printed-sheets"].contains)
+    {
+        let sheets = Int(args[pos + 1]) ?? 0
+        if sheets > 0 { pageCount = sheets * 4 }
+        args.remove(at: pos + 1)
+        args.remove(at: pos)
+    }
+    inFile = args[args.count - 1]
+}
+
+if args.count < 2 {
     print("Usage: booklet <inputfile>")
     exit(1)
 }
+
 let srcUrl = URL(fileURLWithPath: inFile)
 
 guard var srcDoc = PDFDocument(url: srcUrl) else {
@@ -29,17 +79,14 @@ guard var srcDoc = PDFDocument(url: srcUrl) else {
 
 let outFile = FileManager().temporaryDirectory.appendingPathComponent("Booklet-\(srcUrl.lastPathComponent)")
 
-let invertAlternatePages = true
-let pageCount : Int = srcDoc.pageCount
-// let sheets = 12
-// let pageCount = sheets * 4
-let paddedPageCount : Int = ((pageCount + 3) / 4) * 4 - 1
-var pageOrder : [Int] = []
-for i in 0...paddedPageCount/4 {
-    pageOrder.append(paddedPageCount - i * 2)
-    pageOrder.append(i * 2)
-    pageOrder.append(i * 2 + 1)
-    pageOrder.append(paddedPageCount - 1 - i * 2)
+if pageCount < 1 { pageCount = srcDoc.pageCount }
+let paddedPageCount: Int = ((pageCount + 3) / 4) * 4 - 1
+var pageOrder: [Int] = []
+for i in 0...paddedPageCount / 4 {
+    pageOrder.append(startPage - 1 + (paddedPageCount - i * 2))
+    pageOrder.append(startPage - 1 + (i * 2))
+    pageOrder.append(startPage - 1 + (i * 2 + 1))
+    pageOrder.append(startPage - 1 + (paddedPageCount - 1 - i * 2))
 }
 
 var firstBounds = (srcDoc.page(at: 0)?.bounds(for: .mediaBox))!
