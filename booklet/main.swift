@@ -29,7 +29,9 @@ guard var srcDoc = PDFDocument(url: srcUrl) else {
 
 let outFile = FileManager().temporaryDirectory.appendingPathComponent("Booklet-\(srcUrl.lastPathComponent)")
 
-let paddedPageCount : Int = ((srcDoc.pageCount+3) / 4) * 4 - 1
+let pageCount : Int = srcDoc.pageCount
+// let pageCount = 48
+let paddedPageCount : Int = ((pageCount + 3) / 4) * 4 - 1
 var pageOrder : [Int] = []
 for i in 0...paddedPageCount/4 {
     pageOrder.append(paddedPageCount - i * 2)
