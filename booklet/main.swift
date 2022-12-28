@@ -24,7 +24,7 @@ let srcUrl = URL(fileURLWithPath: inFile)
 
 guard var srcDoc = PDFDocument(url: srcUrl) else {
     print("Source file \(inFile) cannot be opened, exiting")
-    exit(1)
+    exit(2)
 }
 
 let outFile = FileManager().temporaryDirectory.appendingPathComponent("Booklet-\(srcUrl.lastPathComponent)")
@@ -68,6 +68,6 @@ for page in stride(from: 0, to: pageOrder.count, by: 2) {
 ctx?.closePDF()
 
 if !NSWorkspace.shared.open(outFile) {
-    print("Destination file \(outFile) cannot be opened, exiting")
-    exit(1)
+   print("Destination file \(outFile) cannot be opened, exiting")
+   exit(3)
 }
