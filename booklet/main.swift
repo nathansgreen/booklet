@@ -12,6 +12,10 @@ let inFile : String
 
 if CommandLine.arguments.count == 2 {
     inFile = CommandLine.arguments[1]
+    if ["-h", "-?", "-help", "--help"].contains(inFile) {
+        print("Usage: booklet <inputfile>")
+        exit(0)
+    }
 } else {
     print("Usage: booklet <inputfile>")
     exit(1)
