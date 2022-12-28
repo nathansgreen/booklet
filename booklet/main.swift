@@ -29,8 +29,10 @@ guard var srcDoc = PDFDocument(url: srcUrl) else {
 
 let outFile = FileManager().temporaryDirectory.appendingPathComponent("Booklet-\(srcUrl.lastPathComponent)")
 
+let invertAlternatePages = true
 let pageCount : Int = srcDoc.pageCount
-// let pageCount = 48
+// let sheets = 12
+// let pageCount = sheets * 4
 let paddedPageCount : Int = ((pageCount + 3) / 4) * 4 - 1
 var pageOrder : [Int] = []
 for i in 0...paddedPageCount/4 {
@@ -58,6 +60,10 @@ for page in stride(from: 0, to: pageOrder.count, by: 2) {
     }
     var pageBox = pg1bounds.union(pg2bounds).applying(CGAffineTransform(scaleX: 2, y: 1))
     ctx?.beginPage(mediaBox: &pageBox)
+    if invertAlternatePages && (page + 2) % 4 == 0 {
+        ctx?.rotate(by: .pi)  // 180º
+        ctx?.translateBy(x: -pageBox.width , y: -pageBox.height)
+     }
     if let pageRef = page1.pageRef {
         ctx?.drawPDFPage(pageRef)
     }
