@@ -9,9 +9,11 @@
 import PDFKit
 
 var inFile: String = ""
+var outFile: URL? = nil
 var startPage = 1
 var invertAlternatePages = false
 var pageCount = 0
+var openAtEnd = true
 
 var args = CommandLine.arguments
 if args.count > 1 {
@@ -44,10 +46,8 @@ if args.count > 1 {
 
     while let pos = args.firstIndex(
         where: [
-            "--invert",
-            "--rotate-alternate",
-            "--rotate-alternate-pages",
-            "--invert-alternate-pages",
+            "--invert", "--invert-alternate-pages",
+            "--rotate-alternate", "--rotate-alternate-pages",
         ].contains)
     {
         invertAlternatePages = true
@@ -62,6 +62,33 @@ if args.count > 1 {
         args.remove(at: pos + 1)
         args.remove(at: pos)
     }
+
+    while let pos = args.firstIndex(
+        where: ["--out", "-out", "--out-file", "--output-file"].contains)
+    {
+        var file = args[pos + 1]
+        if file == "-" { file = "/dev/stdout" }
+        outFile = URL(fileURLWithPath: file)
+        if outFile?.scheme == nil {
+            outFile = URL(string: "file://\(file)")
+            // macOS 13.0 or later:
+            // outFile = URL.currentDirectory().appendingPathComponent(file)
+         }
+        openAtEnd = false
+        args.remove(at: pos + 1)
+        args.remove(at: pos)
+    }
+
+    while let pos = args.firstIndex(
+        where: [
+            "--open", "--open-at-end", "--open-when-finished",
+            "--open-when-complete", "--open-when-completed",
+        ].contains)
+    {
+        if outFile?.absoluteString != "file:///dev/stdout" { openAtEnd = true }
+        args.remove(at: pos)
+    }
+
     inFile = args[args.count - 1]
 }
 
@@ -77,7 +104,19 @@ guard var srcDoc = PDFDocument(url: srcUrl) else {
     exit(2)
 }
 
-let outFile = FileManager().temporaryDirectory.appendingPathComponent("Booklet-\(srcUrl.lastPathComponent)")
+if outFile == nil {
+    outFile = FileManager()
+        .temporaryDirectory
+        .appendingPathComponent("Booklet-\(srcUrl.lastPathComponent)")
+//     "Writing \(String(describing: outFile?.absoluteString))\n"
+//         .data(using: .utf8)
+//         .map(FileHandle.standardError.write)
+}
+// let outFile = FileManager()
+//     .homeDirectoryForCurrentUser
+//     .appendingPathComponent("/Documents/Booklet-\(srcUrl.lastPathComponent)")
+
+let outUrl = outFile!
 
 if pageCount < 1 { pageCount = srcDoc.pageCount }
 let paddedPageCount: Int = ((pageCount + 3) / 4) * 4 - 1
@@ -91,17 +130,17 @@ for i in 0...paddedPageCount / 4 {
 
 var firstBounds = (srcDoc.page(at: 0)?.bounds(for: .mediaBox))!
 var box = CGRect(x: 0, y: 0, width: firstBounds.width * 2, height: firstBounds.height)
-let infoDict = ["kCGPDFContextCreator" : "booklet" ] as CFDictionary
-let ctx = CGContext(outFile as CFURL, mediaBox: &box, infoDict)
+let infoDict = ["kCGPDFContextCreator": "booklet"] as CFDictionary
+let ctx = CGContext(outUrl as CFURL, mediaBox: &box, infoDict)
 
 for page in stride(from: 0, to: pageOrder.count, by: 2) {
-    var (page1, page2) = ( PDFPage(), PDFPage() )
-    var (pg1bounds, pg2bounds) = (firstBounds,firstBounds)
+    var (page1, page2) = (PDFPage(), PDFPage())
+    var (pg1bounds, pg2bounds) = (firstBounds, firstBounds)
     if let pg1 = srcDoc.page(at: pageOrder[page]) {
         page1 = pg1
         pg1bounds = pg1.bounds(for: .mediaBox)
     }
-    if let pg2 = srcDoc.page(at: pageOrder[page+1]) {
+    if let pg2 = srcDoc.page(at: pageOrder[page + 1]) {
         page2 = pg2
         pg2bounds = pg2.bounds(for: .mediaBox)
     }
@@ -109,12 +148,12 @@ for page in stride(from: 0, to: pageOrder.count, by: 2) {
     ctx?.beginPage(mediaBox: &pageBox)
     if invertAlternatePages && (page + 2) % 4 == 0 {
         ctx?.rotate(by: .pi)  // 180º
-        ctx?.translateBy(x: -pageBox.width , y: -pageBox.height)
-     }
+        ctx?.translateBy(x: -pageBox.width, y: -pageBox.height)
+    }
     if let pageRef = page1.pageRef {
         ctx?.drawPDFPage(pageRef)
     }
-    ctx?.translateBy(x: pageBox.width/2, y: 0)
+    ctx?.translateBy(x: pageBox.width / 2, y: 0)
     if let pageRef = page2.pageRef {
         ctx?.drawPDFPage(pageRef)
     }
@@ -122,7 +161,7 @@ for page in stride(from: 0, to: pageOrder.count, by: 2) {
 }
 ctx?.closePDF()
 
-if !NSWorkspace.shared.open(outFile) {
-   print("Destination file \(outFile) cannot be opened, exiting")
-   exit(3)
+if openAtEnd && !NSWorkspace.shared.open(outUrl) {
+    print("Destination file \(outUrl) cannot be opened, exiting")
+    exit(3)
 }
