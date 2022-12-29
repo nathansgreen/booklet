@@ -11,6 +11,8 @@ import PDFKit
 var inFile: String = ""
 var outFile: URL? = nil
 var startPage = 1
+/// some printers do not allow control of page orientation, making it necessary
+/// to flip one side upside down for double-sided prints
 var invertAlternatePages = false
 var pageCount = 0
 var openAtEnd = true
